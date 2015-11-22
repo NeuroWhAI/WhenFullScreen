@@ -192,10 +192,12 @@ namespace WhenFullScreen
                     return false;
                 string classNameStr = className.ToString();
                 
-                // 바탕화면은 제외
-                if (classNameStr == "WorkerW"
+                // 바탕화면, 시작화면은 제외
+                if (classNameStr == "WorkerW"/*배경화면*/
                     ||
-                    classNameStr == "ProgMan")
+                    classNameStr == "ProgMan"
+                    ||
+                    classNameStr == "ImmersiveLauncher"/*Win8 시작화면*/)
                     return false;
                 
                 // 현재 컨트롤이 속하는 모니터의 사각영역을 얻어옵니다.
