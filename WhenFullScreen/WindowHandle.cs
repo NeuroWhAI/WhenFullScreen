@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace WhenFullScreen
 {
@@ -174,74 +175,62 @@ namespace WhenFullScreen
 
         /*---------------------------------------------------------------------------------*/
 
-        public bool IsFullScreen
+        public bool IsFullScreen(string[] classNamesExcluded)
         {
-            get
+            if (m_hWnd == IntPtr.Zero)
+                return false;
+
+            // 컨트롤의 최상위 핸들을 얻어옵니다.
+            IntPtr hWnd = GetAncestor(m_hWnd, GetAncestorFlags.GetRoot);
+            if (hWnd == IntPtr.Zero)
+                return false;
+
+            // 클래스이름을 얻어옵니다.
+            StringBuilder className = new StringBuilder(256);
+            if (GetClassName(hWnd, className, className.Capacity) == 0)
+                return false;
+            string classNameStr = className.ToString();
+
+            // 제외목록에서 하나라도 해당되는지 확인.
+            if (classNamesExcluded.Any((string s) => s == classNameStr))
+                return false;
+
+            // 현재 컨트롤이 속하는 모니터의 사각영역을 얻어옵니다.
+            RECT desktop;
+            IntPtr monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+            if (monitor == IntPtr.Zero)
             {
-                if (m_hWnd == IntPtr.Zero)
+                // 모니터를 찾을 수 없으면 현재 윈도우 화면의 핸들로 설정한다.
+                IntPtr desktopWnd = GetDesktopWindow();
+                if (desktopWnd == IntPtr.Zero)
                     return false;
-                
-                // 컨트롤의 최상위 핸들을 얻어옵니다.
-                IntPtr hWnd = GetAncestor(m_hWnd, GetAncestorFlags.GetRoot);
-                if (hWnd == IntPtr.Zero)
-                    return false;
-                
-                // 클래스이름을 얻어옵니다.
-                StringBuilder className = new StringBuilder(256);
-                if (GetClassName(hWnd, className, className.Capacity) == 0)
-                    return false;
-                string classNameStr = className.ToString();
-                
-                // 바탕화면, 시작화면은 제외
-                if (classNameStr == "WorkerW"/*배경화면*/
-                    ||
-                    classNameStr == "ProgMan"
-                    ||
-                    classNameStr == "ImmersiveLauncher"/*Win8 시작화면*/)
-                    return false;
-                
-                // 현재 컨트롤이 속하는 모니터의 사각영역을 얻어옵니다.
-                RECT desktop;
-                IntPtr monitor = MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
-                if (monitor == IntPtr.Zero)
-                {
-                    // 모니터를 찾을 수 없으면 현재 윈도우 화면의 핸들로 설정한다.
-                    IntPtr desktopWnd = GetDesktopWindow();
-                    if (desktopWnd == IntPtr.Zero)
-                        return false;
 
-                    if (GetWindowRect(desktopWnd, out desktop) == false)
-                        return false;
-                }
-                else
-                {
-                    MONITORINFO info = new MONITORINFO();
-                    info.cbSize = Marshal.SizeOf(info);
-                    if (GetMonitorInfo(monitor, ref info) == false)
-                        return false;
-
-                    desktop = info.rcMonitor;
-                }
-                
-                // 컨트롤의 작업영역을 알아낸다.
-                RECT client;
-                if (GetClientRect(hWnd, out client) == false)
+                if (GetWindowRect(desktopWnd, out desktop) == false)
                     return false;
-                
-                // 영역을 크기로 변환한다.
-                int cx = client.Right - client.Left;
-                int cy = client.Bottom - client.Top;
-
-                int dx = desktop.Right - desktop.Left;
-                int dy = desktop.Bottom - desktop.Top;
-                
-                // 컨트롤의 크기가 모니터 크기보다 작으면 전체화면이 아니다.
-                if (cx < dx || cy < dy)
-                    return false;
-                
-                // 여기까지 도달했으면 전체화면이다.
-                return true;
             }
+            else
+            {
+                MONITORINFO info = new MONITORINFO();
+                info.cbSize = Marshal.SizeOf(info);
+                if (GetMonitorInfo(monitor, ref info) == false)
+                    return false;
+
+                desktop = info.rcMonitor;
+            }
+
+            // 컨트롤의 작업영역을 알아낸다.
+            RECT client;
+            if (GetClientRect(hWnd, out client) == false)
+                return false;
+
+            // 컨트롤의 크기가 모니터 크기보다 작으면 전체화면이 아니다.
+            if (client.Width < desktop.Width
+                ||
+                client.Height < desktop.Height)
+                return false;
+
+            // 여기까지 도달했으면 전체화면이다.
+            return true;
         }
     }
 }

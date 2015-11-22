@@ -25,19 +25,22 @@ namespace WhenFullScreen
 
         /*---------------------------------------------------------------------------------*/
 
+        // 화면 상태가 변함에따라 하강에지, 상승에지 이벤트를 호출해주는 객체
         private EdgeEvent m_fullscreenEvent = new EdgeEvent(false);
+        
+        // 종료한 프로세스 정보 목록
+        private List<ProcessInfo> m_killedProgramList = new List<ProcessInfo>();
 
-        private class ProcessFile
+        // 전체화면이더라도 무시할 클래스명 목록
+        private string[] m_classNamesExcluded =
         {
-            public ProcessFile(string file, string process)
-            {
-                this.fileName = file;
-                this.processName = process;
-            }
+            "WorkerW",                              // 배경화면
+            "ProgMan",
+            "ImmersiveLauncher",                    // Win8 시작화면
+        };
 
-            public string fileName, processName;
-        }
-        private List<ProcessFile> m_killedProgramList = new List<ProcessFile>();
+        // 프로세스 목록에 변화가 있는지 여부
+        private bool m_bProcessListChanged = false;
 
         /*---------------------------------------------------------------------------------*/
 
@@ -77,7 +80,7 @@ namespace WhenFullScreen
             this.timer_update.Start();
 
             // 프로그램 실행 알림
-            this.notifyIcon_tray.ShowBalloonTip(3000, "When FullScreen", "I\'m HERE!", ToolTipIcon.Info);
+            this.notifyIcon_tray.ShowBalloonTip(2000, "When FullScreen", "I\'m HERE!", ToolTipIcon.Info);
         }
 
         private void button_hide_Click(object sender, EventArgs e)
@@ -111,7 +114,7 @@ namespace WhenFullScreen
         {
             WindowHandle wnd = new WindowHandle();
 
-            m_fullscreenEvent.SetSignal(wnd.IsFullScreen);
+            m_fullscreenEvent.SetSignal(wnd.IsFullScreen(m_classNamesExcluded));
         }
 
         private void ToolStripMenuItem_addProc_Click(object sender, EventArgs e)
@@ -125,6 +128,9 @@ namespace WhenFullScreen
             if (this.listBox_program.SelectedItem != null)
             {
                 this.listBox_program.Items.Remove(this.listBox_program.SelectedItem);
+
+                // 목록 변경 알림
+                m_bProcessListChanged = true;
             }
         }
 
@@ -136,8 +142,12 @@ namespace WhenFullScreen
 
         private void Form_Main_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // 목록 저장
-            ListboxFileInterface.WriteFile("processes.txt", this.listBox_program);
+            // 프로세스 목록이 변했으면 
+            if (m_bProcessListChanged)
+            {
+                // 목록 저장
+                ListboxFileInterface.WriteFile("processes.txt", this.listBox_program);
+            }
         }
 
         private void ToolStripMenuItem_startupSet_Click(object sender, EventArgs e)
@@ -191,7 +201,7 @@ namespace WhenFullScreen
 
                 if (processes.Length > 0)
                 {
-                    m_killedProgramList.Add(new ProcessFile(processes[0].MainModule.FileName,
+                    m_killedProgramList.Add(new ProcessInfo(processes[0].MainModule.FileName,
                         processes[0].ProcessName));
 
                     foreach (Process proc in processes)
@@ -204,7 +214,7 @@ namespace WhenFullScreen
 
         private void WhenLeaveFullscreen()
         {
-            foreach (ProcessFile proc in m_killedProgramList)
+            foreach (ProcessInfo proc in m_killedProgramList)
             {
                 if (Process.GetProcessesByName(proc.processName).Length <= 0)
                 {
@@ -232,6 +242,9 @@ namespace WhenFullScreen
 
             // 중복이 아니므로 추가
             this.listBox_program.Items.Add(str);
+
+            // 목록 변경 알림
+            m_bProcessListChanged = true;
         }
     }
 }
