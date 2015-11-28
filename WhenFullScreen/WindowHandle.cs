@@ -189,10 +189,9 @@ namespace WhenFullScreen
             StringBuilder className = new StringBuilder(256);
             if (GetClassName(hWnd, className, className.Capacity) == 0)
                 return false;
-            string classNameStr = className.ToString();
 
             // 제외목록에서 하나라도 해당되는지 확인.
-            if (classNamesExcluded.Any((string s) => s == classNameStr))
+            if (classNamesExcluded.Any((string s) => s == className.ToString()))
                 return false;
 
             // 현재 컨트롤이 속하는 모니터의 사각영역을 얻어옵니다.
